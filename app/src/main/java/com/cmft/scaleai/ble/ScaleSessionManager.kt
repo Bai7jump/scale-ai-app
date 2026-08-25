@@ -72,11 +72,11 @@ class ScaleSessionManager(
     /**
      * 扫描找到秤（超时返回 null）
      */
-    private suspend fun scanForDevice(): BluetoothDevice? {
+    private suspend fun scanForDevice(): BluetoothDevice? = withContext(Dispatchers.IO) {
         scanner = ScaleScanner(bluetoothAdapter)
         val found = CompletableDeferred<BluetoothDevice>()
 
-        val scanJob = launch(Dispatchers.IO) {
+        val scanJob = launch {
             scanner!!.foundDevices.collect { info ->
                 val device = bluetoothAdapter.getRemoteDevice(info.address)
                 if (device != null && !found.isCompleted) {
@@ -93,17 +93,17 @@ class ScaleSessionManager(
 
         scanner!!.stopScan()
         scanJob.cancel()
-        return device
+        device
     }
 
     /**
      * 连接并等待完成数据（0x02 阻抗包）
      */
-    private suspend fun waitForData(device: BluetoothDevice): ScaleReading? {
+    private suspend fun waitForData(device: BluetoothDevice): ScaleReading? = withContext(Dispatchers.IO) {
         val done = CompletableDeferred<ScaleReading?>()
 
         // 订阅数据流
-        val collectJob = launch(Dispatchers.IO) {
+        val collectJob = launch {
             connection.readings.collect { reading ->
                 if (reading.isFinal) {
                     // 完成包：取本次体重+阻抗
@@ -126,7 +126,7 @@ class ScaleSessionManager(
 
         collectJob.cancel()
         connection.disconnect()
-        return result
+        result
     }
 }
 
