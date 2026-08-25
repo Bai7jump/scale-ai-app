@@ -64,6 +64,9 @@ dependencies {
     // DataStore 设置/API Key
     implementation(libs.androidx.datastore.preferences)
 
+    // ViewModel in Compose
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.1")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
