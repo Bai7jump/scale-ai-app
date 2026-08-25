@@ -26,3 +26,5 @@ apk_out/
 build_log.txt
 screen.png
 hist*.png
+d/
+.gradle-fresh/

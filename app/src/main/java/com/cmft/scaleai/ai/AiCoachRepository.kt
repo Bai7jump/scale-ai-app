@@ -116,7 +116,9 @@ class AiCoachRepository(
     private suspend fun buildChatMessages(userId: Long): List<ChatMessageDto> {
         // 最近 MAX_CHAT_CONTEXT 条消息，逆转为时间升序（旧→新）
         val recent = repository.getRecentChatMessages(userId, PromptBuilder.MAX_CHAT_CONTEXT).asReversed()
-        val prompt = PromptBuilder.buildChatPrompt(recent)
+        // 注入最新测量（体重/体脂等），让教练回答基于当前身体状况
+        val latestMeasurement = repository.getLatestMeasurement(userId)
+        val prompt = PromptBuilder.buildChatPrompt(recent, latestMeasurement)
         return listOf(
             ChatMessageDto(role = "system", content = PromptBuilder.systemPrompt),
             ChatMessageDto(role = "user", content = prompt)

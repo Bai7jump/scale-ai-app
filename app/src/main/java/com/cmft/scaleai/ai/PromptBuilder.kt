@@ -77,7 +77,7 @@ object PromptBuilder {
      *
      * @param messages 按时间升序（旧→新）的最近消息
      */
-    fun buildChatPrompt(messages: List<ChatMessage>): String {
+    fun buildChatPrompt(messages: List<ChatMessage>, latestMeasurement: Measurement? = null): String {
         val trimmed = messages.takeLast(MAX_CHAT_CONTEXT)
         val builder = StringBuilder()
         builder.append("你是专业的健身教练兼营养师，请用中文以鼓励、务实的态度回答。")
@@ -89,6 +89,9 @@ object PromptBuilder {
                 val roleLabel = if (msg.role == "user") "用户" else "教练"
                 builder.append("\n").append(roleLabel).append("：").append(msg.content)
             }
+        }
+        if (latestMeasurement != null) {
+            builder.append("\n\n【当前最新身体数据】\n").append(renderMeasurement(latestMeasurement))
         }
         builder.append("\n请结合以上对话继续回答。")
         return builder.toString()

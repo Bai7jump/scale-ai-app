@@ -6,7 +6,8 @@ import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.cmft.scaleai.ScaleAiApplication
-import com.cmft.scaleai.ai.AiReportService
+import com.cmft.scaleai.ai.AiCoachRepository
+import com.cmft.scaleai.ai.AiResult
 import com.cmft.scaleai.ble.ScaleConnection
 import com.cmft.scaleai.ble.ScaleReading
 import com.cmft.scaleai.ble.ScaleSessionManager
@@ -15,12 +16,10 @@ import com.cmft.scaleai.calc.BodyCompositionCalculator
 import com.cmft.scaleai.calc.UserMatch
 import com.cmft.scaleai.calc.UserMatcher
 import com.cmft.scaleai.data.SettingsManager
-import com.cmft.scaleai.data.entity.ChatMessage
 import com.cmft.scaleai.data.entity.Measurement
 import com.cmft.scaleai.data.entity.UserProfile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -43,6 +42,8 @@ class ScaleViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = (application as ScaleAiApplication).repository
     private val settingsManager = SettingsManager(application)
+    // AI 报告/对话统一走正式实现 AiCoachRepository（收敛单一实现）
+    private val aiRepo = AiCoachRepository(repository, settingsManager)
 
     // 运行时可空：无蓝牙服务的设备为 null，不做初始化崩溃
     private val bluetoothAdapter: BluetoothAdapter? =
@@ -61,11 +62,9 @@ class ScaleViewModel(application: Application) : AndroidViewModel(application) {
     private var pendingSource: String? = null
     private var pendingUsers: List<UserProfile> = emptyList()
 
-    // 最近一次报告的缓存（重试用）
+    // 最近一次报告的缓存（重试用）：仅需 userId + measurementId
     private var lastReportUserId: Long? = null
-    private var lastReportMeasurement: Measurement? = null
     private var lastReportMeasurementId: Long? = null
-    private var lastReportHasBody: Boolean = false
 
     init {
         // 映射底层 BLE 会话状态 → 页面阶段（扫描/连接/接收）
@@ -215,28 +214,26 @@ class ScaleViewModel(application: Application) : AndroidViewModel(application) {
      * @param hasBody 是否含体成分数据（manual 为 false → Prompt 注明无体脂数据）
      */
     fun triggerReport(userId: Long, measurement: Measurement, measurementId: Long, hasBody: Boolean) {
+        launchReport(userId, measurementId)
+    }
+
+    /**
+     * 启动一次 AI 报告生成（triggerReport / retryReport 共用）。
+     * 由 [AiCoachRepository.generateReport] 负责持久化 assistant 回复与标记 reportGenerated，
+     * 此处仅更新 UI 状态。
+     */
+    private fun launchReport(userId: Long, measurementId: Long) {
         lastReportUserId = userId
-        lastReportMeasurement = measurement
         lastReportMeasurementId = measurementId
-        lastReportHasBody = hasBody
         viewModelScope.launch {
             _uiState.update { it.copy(reportStatus = ReportStatus.Generating) }
-            try {
-                val apiKey = settingsManager.apiKey.first()
-                val user = repository.getUser(userId) ?: throw IllegalStateException("用户不存在")
-                val content = AiReportService.generateReport(apiKey, user, measurement)
-                repository.insertChatMessage(
-                    ChatMessage(
-                        userId = userId,
-                        role = "assistant",
-                        content = content,
-                        timestamp = System.currentTimeMillis()
-                    )
-                )
-                repository.setReportGenerated(measurementId, true)
-                _uiState.update { it.copy(reportStatus = ReportStatus.Success, message = "AI 报告已生成") }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(reportStatus = ReportStatus.Failed, message = "AI 报告生成失败：${e.message}") }
+            when (val result = aiRepo.generateReport(userId, measurementId)) {
+                is AiResult.Success -> {
+                    _uiState.update { it.copy(reportStatus = ReportStatus.Success, message = "AI 报告已生成") }
+                }
+                is AiResult.Error -> {
+                    _uiState.update { it.copy(reportStatus = ReportStatus.Failed, message = "AI 报告生成失败：${result.message}") }
+                }
             }
         }
     }
@@ -247,8 +244,7 @@ class ScaleViewModel(application: Application) : AndroidViewModel(application) {
     fun retryReport() {
         val uid = lastReportUserId ?: return
         val mid = lastReportMeasurementId ?: return
-        val m = lastReportMeasurement ?: return
-        triggerReport(uid, m, mid, lastReportHasBody)
+        launchReport(uid, mid)
     }
 
     // ===================== 内部辅助 =====================
