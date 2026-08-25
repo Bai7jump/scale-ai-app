@@ -46,6 +46,7 @@ class AiCoachRepository(
                     userId = userId,
                     role = "assistant",
                     content = result.text,
+                    kind = "report",
                     timestamp = System.currentTimeMillis()
                 )
             )
@@ -74,6 +75,7 @@ class AiCoachRepository(
                 userId = userId,
                 role = "user",
                 content = message,
+                kind = "chat",
                 timestamp = System.currentTimeMillis()
             )
         )
@@ -87,6 +89,7 @@ class AiCoachRepository(
                     userId = userId,
                     role = "assistant",
                     content = result.text,
+                    kind = "chat",
                     timestamp = System.currentTimeMillis()
                 )
             )

@@ -13,7 +13,7 @@ import com.cmft.scaleai.data.entity.UserProfile
 
 @Database(
     entities = [UserProfile::class, Measurement::class, ChatMessage::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class ScaleDatabase : RoomDatabase() {
@@ -31,7 +31,7 @@ abstract class ScaleDatabase : RoomDatabase() {
                     context.applicationContext,
                     ScaleDatabase::class.java,
                     "scale_ai.db"
-                ).build().also { INSTANCE = it }
+                ).fallbackToDestructiveMigration().build().also { INSTANCE = it }
             }
         }
     }

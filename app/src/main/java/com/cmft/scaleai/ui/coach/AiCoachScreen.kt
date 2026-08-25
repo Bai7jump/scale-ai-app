@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -79,16 +80,24 @@ fun AiCoachScreen(
 
         HorizontalDivider()
 
-        // 错误横幅
-        state.error?.let {
-            Text(
-                text = it,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
+        // 错误横幅（可关闭）
+        state.error?.let { error ->
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-            )
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = error,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = viewModel::clearError) {
+                    Icon(Icons.Filled.Close, contentDescription = "关闭错误提示")
+                }
+            }
         }
 
         if (state.activeUser == null) {
@@ -106,9 +115,9 @@ fun AiCoachScreen(
                 onRegenerate = viewModel::regenerateReport
             )
 
-            // 对话气泡列表
+            // 对话气泡列表（只展示对话消息，报告消息不出现在气泡里）
             ChatList(
-                messages = state.chatMessages,
+                messages = state.chatMessages.filter { it.kind == "chat" },
                 modifier = Modifier.weight(1f)
             )
 
@@ -177,7 +186,9 @@ private fun ReportCard(
     onRegenerate: () -> Unit
 ) {
     val m = state.latestMeasurement ?: return
-    val reportContent = state.chatMessages.lastOrNull { it.role == "assistant" }?.content
+    val reportContent = state.chatMessages
+        .lastOrNull { it.kind == "report" && it.role == "assistant" }
+        ?.content
 
     Card(
         modifier = Modifier

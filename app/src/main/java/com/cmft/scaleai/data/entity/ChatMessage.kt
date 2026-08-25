@@ -27,5 +27,6 @@ data class ChatMessage(
     val userId: Long,               // 归属档案
     val role: String,               // "user" / "assistant"
     val content: String,            // 消息内容
+    val kind: String = "chat",      // "report"=AI 报告消息 / "chat"=对话消息（默认 chat，兼容老数据）
     val timestamp: Long             // 时间戳(ms)
 )

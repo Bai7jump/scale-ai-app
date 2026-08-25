@@ -146,9 +146,10 @@ private fun HistoryItemRow(m: Measurement) {
     }
 }
 
-/** 来源显示：ble=BLE、manual=手动、seed(假数据)= "-" */
+/** 来源显示：ble=BLE、manual=手动、seed=模拟、其余未知 -> "-" */
 private fun sourceLabel(source: String): String = when (source) {
     "ble" -> "BLE"
     "manual" -> "手动"
+    "seed" -> "模拟"
     else -> "-"
 }
