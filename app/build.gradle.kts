@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
 }
 
@@ -63,6 +64,10 @@ dependencies {
 
     // DataStore 设置/API Key
     implementation(libs.androidx.datastore.preferences)
+
+    // AI 集成：OkHttp + kotlinx.serialization（DeepSeek API）
+    implementation(libs.okhttp)
+    implementation(libs.kotlinx.serialization.json)
 
     // ViewModel in Compose
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.1")

@@ -25,3 +25,4 @@ apk_out/
 *.zip
 build_log.txt
 screen.png
+hist*.png
