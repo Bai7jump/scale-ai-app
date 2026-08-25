@@ -52,6 +52,9 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
 
+    // Material Icons (MonitorWeight, SmartToy 等扩展图标)
+    implementation("androidx.compose.material:material-icons-extended")
+
     // Room 数据层
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
