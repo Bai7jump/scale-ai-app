@@ -102,7 +102,7 @@ class ScaleViewModel(application: Application) : AndroidViewModel(application) {
             // 阻塞直到完成/超时
             val reading = sessionManager.startSession()
             if (reading == null) {
-                _uiState.update { it.copy(phase = ScalePhase.Timeout, message = "称重会话超时，未获取到数据") }
+                _uiState.update { it.copy(phase = ScalePhase.SyncFailed, message = "同步失败，未获取到数据") }
                 return@launch
             }
             prepareConfirmation(
@@ -145,6 +145,32 @@ class ScaleViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ===================== 确认 → 计算 → 保存 =====================
+
+    /**
+     * 同步失败弹窗中的手动输入兜底：校验体重后复用确认流程。
+     */
+    fun saveManualFromDialog(weightText: String) {
+        viewModelScope.launch {
+            val weight = weightText.trim().toDoubleOrNull()
+            if (weight == null || weight <= 0) {
+                _uiState.update { it.copy(message = "请输入合法的体重数值") }
+                return@launch
+            }
+            val users = repository.getAllUsers()
+            if (users.isEmpty()) {
+                _uiState.update { it.copy(message = "请先在设置中创建用户档案") }
+                return@launch
+            }
+            prepareConfirmation(
+                weightKg = weight,
+                impedance = null,
+                users = users,
+                source = "manual",
+                reading = null,
+                manualWeight = weight
+            )
+        }
+    }
 
     /**
      * 用户确认人选（弹窗「本次是谁？」）后，才用该用户的性别/身高/年龄计算体成分并入库。
@@ -314,7 +340,7 @@ class ScaleViewModel(application: Application) : AndroidViewModel(application) {
 /**
  * 称重页状态机阶段
  */
-enum class ScalePhase { Idle, Scanning, Connecting, Receiving, Confirming, Result, Timeout }
+enum class ScalePhase { Idle, Scanning, Connecting, Receiving, Confirming, Result, Timeout, SyncFailed }
 
 /**
  * AI 报告生成状态

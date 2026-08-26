@@ -62,7 +62,6 @@ fun ScaleScreen(
     val repository = app.repository
     val settingsManager = remember { SettingsManager(context) }
     var showSettings by remember { mutableStateOf(false) }
-    var manualWeight by remember { mutableStateOf("") }
 
     Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -98,10 +97,7 @@ fun ScaleScreen(
             // 主体：按状态机阶段渲染
             when (state.phase) {
                 ScalePhase.Idle -> IdleContent(
-                    manualWeight = manualWeight,
-                    onManualChange = { manualWeight = it },
-                    onStartBle = { viewModel.startBleSession() },
-                    onStartManual = { viewModel.startManualEntry(manualWeight) }
+                    onStartBle = { viewModel.startBleSession() }
                 )
                 ScalePhase.Scanning,
                 ScalePhase.Connecting,
@@ -115,6 +111,7 @@ fun ScaleScreen(
                     state = state,
                     onReset = { viewModel.reset() }
                 )
+                ScalePhase.SyncFailed -> Box(modifier = Modifier.fillMaxSize())
                 ScalePhase.Confirming -> Text(
                     text = "请确认人选…",
                     modifier = Modifier.padding(16.dp)
@@ -139,15 +136,20 @@ fun ScaleScreen(
                 onDismiss = { viewModel.reset() }
             )
         }
+
+        // 同步失败弹窗：失败后询问是否手动输入
+        if (state.phase == ScalePhase.SyncFailed) {
+            SyncFailedDialog(
+                onConfirm = { viewModel.saveManualFromDialog(it) },
+                onDismiss = { viewModel.reset() }
+            )
+        }
     }
 }
 
 @Composable
 private fun IdleContent(
-    manualWeight: String,
-    onManualChange: (String) -> Unit,
-    onStartBle: () -> Unit,
-    onStartManual: () -> Unit
+    onStartBle: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -155,7 +157,7 @@ private fun IdleContent(
             .padding(16.dp)
     ) {
         Text(
-            text = "点击开始同步体脂秤数据，或手动输入体重。",
+            text = "点击开始同步体脂秤数据。若同步失败，可手动输入体重。",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -164,24 +166,6 @@ private fun IdleContent(
             onClick = onStartBle,
             modifier = Modifier.fillMaxWidth()
         ) { Text("开始同步秤数据") }
-
-        Spacer(modifier = Modifier.height(28.dp))
-        Text("或手动输入体重", style = MaterialTheme.typography.titleSmall)
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = manualWeight,
-            onValueChange = onManualChange,
-            label = { Text("体重 (kg)") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Button(
-            onClick = onStartManual,
-            enabled = manualWeight.isNotBlank(),
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("保存手动记录") }
     }
 }
 
@@ -351,6 +335,49 @@ private fun ConfirmUserDialog(
                 val chosen = state.users.firstOrNull { it.id == selected }
                 if (chosen != null) onConfirm(chosen)
             }) { Text("确定") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        }
+    )
+}
+
+/**
+ * 同步失败弹窗：告知同步失败，询问是否手动输入体重。
+ * 确认后弹窗内输入体重并保存。
+ */
+@Composable
+private fun SyncFailedDialog(
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var weightText by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("同步失败") },
+        text = {
+            Column {
+                Text(
+                    text = "未获取到体脂秤数据，是否手动输入体重？",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = weightText,
+                    onValueChange = { weightText = it },
+                    label = { Text("体重 (kg)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(weightText) },
+                enabled = weightText.isNotBlank()
+            ) { Text("确定") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("取消") }
