@@ -2,6 +2,7 @@ package com.cmft.scaleai.ui.history
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,13 +33,11 @@ import androidx.compose.ui.unit.dp
  * X 轴：日期标签（MM-dd），采样显示。
  * 折点可点击：点击某个数据点高亮并显示该点信息（日期/体脂率/体重）。
  *
- * 体脂缺失断点：bodyFatPcts 中某位为 null 时，在该点断开（不连线），
- * 只在相邻两个非 null 的点之间连线。
+ * 体脂缺失断点：bodyFatPcts 中某位为 null 时，在该点断开（不连线）。
  *
  * @param bodyFatPcts  体脂率序列（可含 null 表示缺失，时间正序）
  * @param dates        X 轴日期标签（MM-dd，时间正序，与 bodyFatPcts 一一对应）
  * @param weights      体重序列（时间正序，用于点击时展示该点体重）
- * @param fatColor     体脂线颜色
  */
 @Composable
 fun BodyFatChart(
@@ -67,19 +66,27 @@ fun BodyFatChart(
 
     val fMin = fatValues.min()
     val fMax = fatValues.max()
-
-    // 选中点索引（可空 = 未选中）
-    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+    val n = bodyFatPcts.size
     val labelStyle = MaterialTheme.typography.labelSmall
+
+    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+
+    // 图表区高度固定，Canvas 高度一致，保证点击与绘制坐标统一
+    val chartHeight = 180
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth()) {
             // 左 Y 轴刻度：上=最大值，中=中间值，下=最小值
-            Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(36.dp)) {
+            Column(
+                horizontalAlignment = Alignment.End,
+                modifier = Modifier
+                    .width(40.dp)
+                    .height(chartHeight.dp)
+            ) {
                 Text("${formatNumber(fMax)}%", style = labelStyle, color = labelColor)
-                Column(modifier = Modifier.weight(1f)) { }
+                Spacer(modifier = Modifier.weight(1f))
                 Text("${formatNumber((fMax + fMin) / 2)}%", style = labelStyle, color = labelColor)
-                Column(modifier = Modifier.weight(1f)) { }
+                Spacer(modifier = Modifier.weight(1f))
                 Text("${formatNumber(fMin)}%", style = labelStyle, color = labelColor)
             }
 
@@ -87,17 +94,19 @@ fun BodyFatChart(
             Canvas(
                 modifier = Modifier
                     .weight(1f)
-                    .height(180.dp)
-                    .padding(horizontal = 8.dp)
-                    .pointerInput(bodyFatPcts.size) {
+                    .height(chartHeight.dp)
+                    .pointerInput(bodyFatPcts.size, bodyFatPcts) {
                         detectTapGestures { offset ->
-                            // 找到距离点击位置最近的数据点
+                            if (n <= 1) {
+                                selectedIndex = if (bodyFatPcts[0] != null) 0 else null
+                                return@detectTapGestures
+                            }
                             var best = -1
                             var bestDist = Float.MAX_VALUE
                             bodyFatPcts.forEachIndexed { i, v ->
                                 if (v != null) {
-                                    val x = i * (size.width / (bodyFatPcts.size - 1).toFloat())
-                                    val dist = Math.abs(offset.x - x)
+                                    val x = i * (size.width / (n - 1).toFloat())
+                                    val dist = kotlin.math.abs(offset.x - x)
                                     if (dist < bestDist) {
                                         bestDist = dist
                                         best = i
@@ -110,15 +119,13 @@ fun BodyFatChart(
             ) {
                 val padH = 4f
                 val padTop = 10f
-                val padBottom = 20f
+                val padBottom = 18f
                 val plotW = size.width - padH * 2
                 val plotH = size.height - padTop - padBottom
                 if (plotW <= 0 || plotH <= 0) return@Canvas
 
-                val n = bodyFatPcts.size
                 val xStep = if (n > 1) plotW / (n - 1) else plotW
                 val xFor: (Int) -> Float = { i -> padH + i * xStep }
-
                 val fRange = (fMax - fMin).takeIf { it > 0 } ?: 1.0
                 val fYFor: (Double) -> Float = { v -> padTop + ((fMax - v) / fRange * plotH).toFloat() }
 
@@ -150,7 +157,6 @@ fun BodyFatChart(
                                 cap = StrokeCap.Round
                             )
                         }
-                        // 选中点放大高亮
                         if (selectedIndex == i) {
                             drawCircle(color = selectedColor, radius = 7f, center = Offset(x, y))
                             drawCircle(color = Color.White, radius = 3f, center = Offset(x, y))
@@ -161,12 +167,10 @@ fun BodyFatChart(
                     }
                 }
 
-                // X 轴日期标签（采样显示：最多 5 个）
-                val labelCount = 5
-                val step = (n / labelCount).coerceAtLeast(1)
+                // X 轴底部刻度短竖线
+                val step = (n / 5).coerceAtLeast(1)
                 for (i in bodyFatPcts.indices step step) {
                     val x = xFor(i)
-                    // 画刻度短竖线
                     drawLine(
                         color = gridColor,
                         start = Offset(x, size.height - padBottom),
@@ -177,26 +181,21 @@ fun BodyFatChart(
             }
         }
 
-        // X 轴日期标签行（采样显示）
-        val labelCount = 5
-        val step = (bodyFatPcts.size / labelCount).coerceAtLeast(1)
+        // X 轴日期标签行（采样显示，最多 5 个）
+        val step = (n / 5).coerceAtLeast(1)
+        val labelIndices = buildList {
+            for (i in bodyFatPcts.indices step step) add(i)
+            if (lastOrNull() != bodyFatPcts.lastIndex) add(bodyFatPcts.lastIndex)
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 36.dp, end = 8.dp),
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
+                .padding(start = 40.dp, end = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            for (i in bodyFatPcts.indices step step) {
+            labelIndices.forEach { i ->
                 Text(
                     text = dates.getOrElse(i) { "" },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = labelColor
-                )
-            }
-            // 末尾对齐补一个最后日期（若未包含）
-            if ((bodyFatPcts.size - 1) % step != 0) {
-                Text(
-                    text = dates.lastOrNull() ?: "",
                     style = MaterialTheme.typography.labelSmall,
                     color = labelColor
                 )
@@ -211,10 +210,10 @@ fun BodyFatChart(
             val weight = weights.getOrElse(idx) { 0.0 }
             Spacer(modifier = Modifier.height(8.dp))
             Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 36.dp, end = 8.dp),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp)
+                modifier = Modifier.fillMaxWidth().padding(start = 40.dp, end = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text(date, style = MaterialTheme.typography.bodyMedium, color = labelColor)
+                Text(date, style = MaterialTheme.typography.bodyMedium)
                 Text(
                     text = if (fat != null) "体脂 ${"%.1f".format(fat)}%" else "体脂 -",
                     style = MaterialTheme.typography.bodyMedium,
