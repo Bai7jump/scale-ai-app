@@ -76,20 +76,23 @@ fun HistoryScreen(
             return@Column
         }
 
-        // ===== 双轴趋势图（时间正序） =====
+        // ===== 体脂率趋势图（时间正序，单轴，折点可点击） =====
         val asc = state.measurements.reversed() // 倒序 -> 正序（时间从早到晚）
         val weights = asc.map { it.weightKg }
         val bodyFatPcts = asc.map { it.bodyFatPct }
+        val dates = asc.map {
+            SimpleDateFormat("MM-dd", Locale.getDefault()).format(Date(it.timestamp))
+        }
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("体重 / 体脂趋势", style = MaterialTheme.typography.titleSmall)
+                Text("体脂率趋势", style = MaterialTheme.typography.titleSmall)
                 Text(
-                    text = "左轴:体重(kg)  右轴:体脂率(%)",
+                    text = "Y轴:体脂率(%)  X轴:日期（点击折点查看数值）",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                DualAxisChart(weights = weights, bodyFatPcts = bodyFatPcts)
+                BodyFatChart(bodyFatPcts = bodyFatPcts, dates = dates, weights = weights)
             }
         }
 
