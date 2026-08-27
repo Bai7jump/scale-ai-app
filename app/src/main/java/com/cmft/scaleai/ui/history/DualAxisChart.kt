@@ -3,9 +3,11 @@ package com.cmft.scaleai.ui.history
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -90,12 +92,12 @@ fun BodyFatChart(
                 Text("${formatNumber(fMin)}%", style = labelStyle, color = labelColor)
             }
 
-            // 主绘图区：折线 + 可点击点
-            Canvas(
+            // 主绘图区：折线 + 可点击点（Box 包裹，点击层与绘制层坐标一致）
+            Box(
                 modifier = Modifier
                     .weight(1f)
                     .height(chartHeight.dp)
-                    .pointerInput(bodyFatPcts.size, bodyFatPcts) {
+                    .pointerInput(Unit) {
                         detectTapGestures { offset ->
                             if (n <= 1) {
                                 selectedIndex = if (bodyFatPcts[0] != null) 0 else null
@@ -117,6 +119,9 @@ fun BodyFatChart(
                         }
                     }
             ) {
+                Canvas(
+                    modifier = Modifier.fillMaxSize()
+                ) {
                 val padH = 4f
                 val padTop = 10f
                 val padBottom = 18f
@@ -227,6 +232,8 @@ fun BodyFatChart(
             }
         }
     }
+}
+
 }
 
 /** 数字显示：去掉多余小数（<=1 位小数） */
