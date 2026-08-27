@@ -1,13 +1,10 @@
 package com.cmft.scaleai.ui.history
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -92,36 +89,41 @@ fun BodyFatChart(
                 Text("${formatNumber(fMin)}%", style = labelStyle, color = labelColor)
             }
 
-            // 主绘图区：折线 + 可点击点（Box 包裹，点击层与绘制层坐标一致）
-            Box(
+            // 主绘图区：折线 + 可点击点
+            Canvas(
                 modifier = Modifier
                     .weight(1f)
                     .height(chartHeight.dp)
                     .pointerInput(Unit) {
-                        detectTapGestures { offset ->
-                            if (n <= 1) {
-                                selectedIndex = if (bodyFatPcts[0] != null) 0 else null
-                                return@detectTapGestures
-                            }
-                            var best = -1
-                            var bestDist = Float.MAX_VALUE
-                            bodyFatPcts.forEachIndexed { i, v ->
-                                if (v != null) {
-                                    val x = i * (size.width / (n - 1).toFloat())
-                                    val dist = kotlin.math.abs(offset.x - x)
-                                    if (dist < bestDist) {
-                                        bestDist = dist
-                                        best = i
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                // 检测按下(ACTION_DOWN)事件
+                                val down = event.changes.firstOrNull { it.pressed }
+                                if (down != null) {
+                                    val offset = down.position
+                                    if (n <= 1) {
+                                        selectedIndex = if (bodyFatPcts[0] != null) 0 else null
+                                    } else {
+                                        var best = -1
+                                        var bestDist = Float.MAX_VALUE
+                                        bodyFatPcts.forEachIndexed { i, v ->
+                                            if (v != null) {
+                                                val x = i * (size.width / (n - 1).toFloat())
+                                                val dist = kotlin.math.abs(offset.x - x)
+                                                if (dist < bestDist) {
+                                                    bestDist = dist
+                                                    best = i
+                                                }
+                                            }
+                                        }
+                                        selectedIndex = if (best >= 0) best else null
                                     }
                                 }
                             }
-                            selectedIndex = if (best >= 0) best else null
                         }
                     }
             ) {
-                Canvas(
-                    modifier = Modifier.fillMaxSize()
-                ) {
                 val padH = 4f
                 val padTop = 10f
                 val padBottom = 18f
@@ -232,8 +234,6 @@ fun BodyFatChart(
             }
         }
     }
-}
-
 }
 
 /** 数字显示：去掉多余小数（<=1 位小数） */
